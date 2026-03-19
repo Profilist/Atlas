@@ -1,0 +1,46 @@
+{
+  "name": "x-bookmark-whiteboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -r \"npm:dev:web\" \"npm:dev:db\"",
+    "dev:web": "vite dev --port 3000",
+    "dev:db": "convex dev --typecheck-components",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "codegen": "convex codegen",
+    "copy-fonts": "node scripts/copy-fonts.mjs"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.11.2",
+    "@convex-dev/react-query": "^0.1.0",
+    "@google/genai": "^1.46.0",
+    "@tanstack/react-query": "^5.91.2",
+    "@tanstack/react-query-devtools": "^5.91.2",
+    "@tanstack/react-router": "^1.167.5",
+    "@tanstack/react-router-devtools": "^1.166.9",
+    "@tanstack/react-router-ssr-query": "^1.166.9",
+    "@tanstack/react-start": "^1.166.18",
+    "better-auth": "^1.5.5",
+    "cheerio": "^1.2.0",
+    "convex": "^1.33.1",
+    "geist": "^1.7.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tldraw": "^4.5.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.29.1",
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1",
+    "vite-tsconfig-paths": "^6.1.1",
+    "wrangler": "^4.75.0"
+  }
+}
