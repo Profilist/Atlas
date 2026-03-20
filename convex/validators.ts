@@ -113,6 +113,11 @@ export const boardSummaryValidator = v.object({
   updatedAt: v.number(),
 })
 
+export const deleteImpactValidator = v.object({
+  ownedItemCount: v.number(),
+  membershipOnlyItemCount: v.number(),
+})
+
 export const syncRunSummaryValidator = v.object({
   _id: v.id('syncRuns'),
   _creationTime: v.number(),
@@ -151,4 +156,12 @@ export const generatedSearchBoardValidator = v.object({
       cluster: v.string(),
     }),
   ),
+})
+
+export const manualLinkIngestResultValidator = v.object({
+  created: v.number(),
+  skipped: v.number(),
+  redirectBoardId: v.optional(v.id('boards')),
+  redirectBoardName: v.optional(v.string()),
+  affectedBoardCount: v.number(),
 })

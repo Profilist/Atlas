@@ -13,16 +13,18 @@ export const Route = createFileRoute('/_authenticated/boards/$boardId')({
 
 function BoardRouteComponent() {
   const { boardId } = Route.useParams()
+  const navigate = Route.useNavigate()
   const boardData = useQuery(api.boards.get, {
     boardId: boardId as Id<'boards'>,
   })
   const readSnapshot = useAction(api.boards.readSnapshot)
-  const ingestLinks = useMutation(api.manualLinks.ingest)
+  const deleteBoard = useAction(api.boards.deleteBoard)
   const generateUploadUrl = useMutation(api.boards.generateSnapshotUploadUrl)
   const commitSnapshot = useMutation(api.boards.commitSnapshot)
   const [snapshot, setSnapshot] = useState<BoardSnapshot | null>(null)
-  const [linkInput, setLinkInput] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let isActive = true
@@ -37,6 +39,12 @@ function BoardRouteComponent() {
       isActive = false
     }
   }, [boardId, readSnapshot])
+
+  useEffect(() => {
+    setIsConfirmingDelete(false)
+    setDeleteError(null)
+    setIsDeleting(false)
+  }, [boardId])
 
   async function handleSave(nextSnapshot: BoardSnapshot) {
     const uploadUrl = await generateUploadUrl({})
@@ -56,22 +64,32 @@ function BoardRouteComponent() {
     setSnapshot(nextSnapshot)
   }
 
-  async function handleIngest() {
-    const urls = linkInput
-      .split(/\r?\n|,/)
-      .map((value) => value.trim())
-      .filter(Boolean)
+  async function handleDeleteBoard() {
+    setIsDeleting(true)
+    setDeleteError(null)
 
-    if (urls.length === 0) {
-      return
-    }
-
-    setIsSubmitting(true)
     try {
-      await ingestLinks({ urls })
-      setLinkInput('')
+      const result = await deleteBoard({ boardId: boardId as Id<'boards'> })
+
+      if (result.redirectBoardId) {
+        void navigate({
+          to: '/boards/$boardId',
+          params: {
+            boardId: result.redirectBoardId,
+          },
+        })
+        return
+      }
+
+      void navigate({
+        to: '/settings/connections',
+      })
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : 'Failed to delete the board',
+      )
     } finally {
-      setIsSubmitting(false)
+      setIsDeleting(false)
     }
   }
 
@@ -103,16 +121,54 @@ function BoardRouteComponent() {
         </div>
 
         <div className="stack-sm page-header__actions">
-          <textarea
-            className="input input-textarea"
-            onChange={(event) => setLinkInput(event.target.value)}
-            placeholder="Paste links here, one per line or comma-separated"
-            rows={3}
-            value={linkInput}
-          />
-          <button className="button button-primary" disabled={isSubmitting} onClick={handleIngest}>
-            {isSubmitting ? 'Saving...' : 'Save Links'}
-          </button>
+          {isConfirmingDelete ? (
+            <div className="board-delete-card stack-sm">
+              <p className="muted">
+                Delete this board?{' '}
+                {boardData.deleteImpact.ownedItemCount > 0
+                  ? `${boardData.deleteImpact.ownedItemCount} primary item${boardData.deleteImpact.ownedItemCount === 1 ? '' : 's'} will be reassigned automatically.`
+                  : 'It has no primary-owned items.'}{' '}
+                {boardData.deleteImpact.membershipOnlyItemCount > 0
+                  ? `${boardData.deleteImpact.membershipOnlyItemCount} saved-search item${boardData.deleteImpact.membershipOnlyItemCount === 1 ? '' : 's'} will simply lose this board membership.`
+                  : 'No membership-only items will be affected.'}
+              </p>
+
+              <div className="row gap-sm">
+                <button
+                  className="button button-danger"
+                  disabled={isDeleting}
+                  onClick={() => {
+                    void handleDeleteBoard()
+                  }}
+                >
+                  {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                </button>
+                <button
+                  className="button button-secondary"
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setIsConfirmingDelete(false)
+                    setDeleteError(null)
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="button button-danger"
+              disabled={isDeleting}
+              onClick={() => {
+                setIsConfirmingDelete(true)
+                setDeleteError(null)
+              }}
+            >
+              Delete Board
+            </button>
+          )}
+
+          {deleteError ? <p className="form-note form-note--error">{deleteError}</p> : null}
         </div>
       </header>
 
@@ -120,6 +176,7 @@ function BoardRouteComponent() {
         cards={boardData.cards}
         emptyTitle="Board"
         onSave={handleSave}
+        saveDisabled={isDeleting}
         snapshot={snapshot}
       />
     </div>

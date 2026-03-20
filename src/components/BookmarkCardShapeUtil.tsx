@@ -53,14 +53,6 @@ function parseMedia(mediaJson: string) {
   }
 }
 
-function parseTags(tagsJson: string) {
-  try {
-    return JSON.parse(tagsJson) as string[]
-  } catch {
-    return []
-  }
-}
-
 export class BookmarkCardShapeUtil extends BaseBoxShapeUtil<BookmarkCardShape> {
   static override type = 'bookmark-card' as const
   static override props = bookmarkCardShapeProps
@@ -97,7 +89,6 @@ export class BookmarkCardShapeUtil extends BaseBoxShapeUtil<BookmarkCardShape> {
 
   override component(shape: BookmarkCardShape) {
     const media = parseMedia(shape.props.mediaJson)
-    const tags = parseTags(shape.props.tagsJson)
     const showTitle = shape.props.sourceType !== 'x' && shape.props.title.trim().length > 0
     const mediaClassName =
       media.length <= 1 ? 'bookmark-card__media bookmark-card__media--single' : 'bookmark-card__media'
@@ -130,21 +121,13 @@ export class BookmarkCardShapeUtil extends BaseBoxShapeUtil<BookmarkCardShape> {
           </div>
 
           <div className="bookmark-card__copy">
-            <div className="bookmark-card__meta">
-              <span>{shape.props.sourceType === 'x' ? 'X bookmark' : 'Link'}</span>
-              {shape.props.authorLabel ? <span>{shape.props.authorLabel}</span> : null}
-            </div>
-            {showTitle ? <h3 className="bookmark-card__title">{shape.props.title}</h3> : null}
-            <p className="bookmark-card__summary">{shape.props.summary}</p>
-            {tags.length > 0 ? (
-              <div className="bookmark-card__tags">
-                {tags.slice(0, 4).map((tag) => (
-                  <span className="bookmark-card__tag" key={tag}>
-                    {tag}
-                  </span>
-                ))}
+            {shape.props.authorLabel ? (
+              <div className="bookmark-card__meta">
+                <span>{shape.props.authorLabel}</span>
               </div>
             ) : null}
+            {showTitle ? <h3 className="bookmark-card__title">{shape.props.title}</h3> : null}
+            <p className="bookmark-card__summary">{shape.props.summary}</p>
           </div>
         </div>
       </HTMLContainer>

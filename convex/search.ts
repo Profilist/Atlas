@@ -95,6 +95,15 @@ export const generateBoard = action({
         })
       : null
 
+    const scopedItemIds = new Set<Id<'items'>>(
+      args.boardId
+        ? await ctx.runQuery(internal.boardReaders.getBoardItemIds, {
+            userId: viewer._id,
+            boardId: args.boardId,
+          })
+        : [],
+    )
+
     const textHits = await ctx.runQuery(internal.searchIndex.searchTextHits, {
       userId: viewer._id,
       query: args.query,
@@ -106,7 +115,7 @@ export const generateBoard = action({
     const vectorHits = embedding
       ? await ctx.vectorSearch('items', 'by_embedding', {
           vector: embedding,
-          limit: 24,
+          limit: args.boardId ? 120 : 24,
           filter: (q) => q.eq('userId', viewer._id),
         })
       : []
@@ -118,13 +127,8 @@ export const generateBoard = action({
     })
 
     vectorHits.forEach((item: (typeof vectorHits)[number]) => {
-      if (args.boardId) {
-        const matchingTextHit = textHits.find(
-          (textHit: (typeof textHits)[number]) => textHit._id === item._id,
-        )
-        if (matchingTextHit && matchingTextHit.boardId !== args.boardId) {
-          return
-        }
+      if (args.boardId && !scopedItemIds.has(item._id)) {
+        return
       }
 
       scoreMap.set(item._id, (scoreMap.get(item._id) ?? 0) + item._score * 100)

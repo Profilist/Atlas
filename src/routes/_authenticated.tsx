@@ -25,13 +25,5 @@ export const Route = createFileRoute('/_authenticated')({
 function AuthenticatedLayout() {
   const boards = useQuery(api.boards.list, {})
 
-  return (
-    <AppShell
-      boards={boards?.boards ?? []}
-      subtitle={
-        boards?.latestSyncRun?.message ||
-        'Minimal boards for inspiration, research, and saved media.'
-      }
-    />
-  )
+  return <AppShell boards={boards?.boards ?? []} />
 }

@@ -3,12 +3,11 @@
 import { GoogleGenAI } from '@google/genai'
 import { ConvexError, v } from 'convex/values'
 import { load } from 'cheerio'
-import { z } from 'zod'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { internalAction, type ActionCtx } from './_generated/server'
+import { decideBoardTarget } from './boardRouting'
 import {
-  boardNameFromTopic,
   buildSearchText,
   dedupeStrings,
   getDomainFromUrl,
@@ -25,15 +24,6 @@ const ai = process.env.GEMINI_API_KEY
       apiKey: process.env.GEMINI_API_KEY,
     })
   : null
-
-const analysisResponseSchema = z.object({
-  summary: z.string().min(1).max(280),
-  tags: z.array(z.string()).default([]),
-  existingBoardName: z.string().nullable().optional(),
-  newBoardName: z.string().nullable().optional(),
-  reason: z.string().min(1).max(280),
-  confidence: z.number().min(0).max(1).optional(),
-})
 
 const stopWords = new Set([
   'about',
@@ -83,86 +73,6 @@ function pickTags(text: string) {
     .sort((left, right) => right[1] - left[1])
     .slice(0, 5)
     .map(([value]) => value)
-}
-
-function fallbackBoardName(input: {
-  title: string
-  summary: string
-  contentText: string
-  domain?: string
-  existingBoards: Array<{ name: string; slug: string }>
-}) {
-  const haystack = `${input.title} ${input.summary} ${input.contentText}`.toLowerCase()
-
-  for (const board of input.existingBoards) {
-    if (
-      haystack.includes(board.name.toLowerCase()) ||
-      haystack.includes(board.slug.toLowerCase())
-    ) {
-      return {
-        existingBoardName: board.name,
-        newBoardName: null,
-      }
-    }
-  }
-
-  const tags = pickTags(haystack)
-  return {
-    existingBoardName: null,
-    newBoardName: boardNameFromTopic(tags[0] ?? input.domain ?? 'Collected'),
-  }
-}
-
-async function classifyWithGemini(input: {
-  title: string
-  summary: string
-  contentText: string
-  url: string
-  existingBoards: Array<{ name: string; slug: string }>
-}) {
-  if (!ai) {
-    return null
-  }
-
-  const response = await ai.models.generateContent({
-    model: GEMINI_TEXT_MODEL,
-    contents: [
-      `You organize personal research bookmarks into boards.
-
-Existing boards:
-${input.existingBoards.map((board) => `- ${board.name}`).join('\n') || '- none yet'}
-
-Rules:
-- Always classify into either an exact existing board name or a new short board name.
-- Prefer reusing an existing board when it is reasonably close.
-- New board names should be 1 to 3 words in title case.
-- Summary must be concise and useful on a whiteboard card.
-- Tags should be 3 to 6 lowercase tags.
-- Return JSON only.
-
-Bookmark title: ${input.title}
-Bookmark summary: ${input.summary}
-Bookmark URL: ${input.url}
-Bookmark content:
-${input.contentText.slice(0, 8000)}
-
-Return:
-{
-  "summary": string,
-  "tags": string[],
-  "existingBoardName": string | null,
-  "newBoardName": string | null,
-  "reason": string,
-  "confidence": number
-}`,
-    ],
-    config: {
-      responseMimeType: 'application/json',
-      temperature: 0.2,
-    },
-  })
-
-  return analysisResponseSchema.parse(JSON.parse(response.text ?? '{}'))
 }
 
 async function createEmbedding(searchText: string) {
@@ -316,49 +226,34 @@ async function processItem(
     slug: board.slug,
   }))
 
-  const fallbackDecision = fallbackBoardName({
+  const boardDecision = await decideBoardTarget({
     title,
     summary,
     contentText,
-    domain: item.domain,
+    url: item.url,
     existingBoards,
+    domain: item.domain,
   })
 
-  const aiDecision =
-    (await classifyWithGemini({
-      title,
-      summary,
-      contentText,
-      url: item.url,
-      existingBoards,
-    }).catch(() => null)) ?? null
-
-  const finalSummary = normalizeWhitespace(aiDecision?.summary || summary || title).slice(
+  const finalSummary = normalizeWhitespace(boardDecision.aiDecision?.summary || summary || title).slice(
     0,
     280,
   )
-  const tags = dedupeStrings(aiDecision?.tags?.length ? aiDecision.tags : pickTags(`${title} ${contentText}`)).slice(
+  const tags = dedupeStrings(boardDecision.aiDecision?.tags?.length ? boardDecision.aiDecision.tags : pickTags(`${title} ${contentText}`)).slice(
     0,
     6,
   )
 
-  const targetBoardName =
-    aiDecision?.existingBoardName ||
-    aiDecision?.newBoardName ||
-    fallbackDecision.existingBoardName ||
-    fallbackDecision.newBoardName ||
-    'Collected'
-
   const matchedExistingBoard = boardList.find(
     (board: (typeof boardList)[number]) =>
-      board.name.toLowerCase() === targetBoardName.toLowerCase(),
+      board.name.toLowerCase() === boardDecision.matchedExistingBoardName?.toLowerCase(),
   )
 
   const board = await ctx.runMutation(internal.boards.ensureBoardTarget, {
     userId: item.userId,
     boardId: matchedExistingBoard?._id,
-    boardName: matchedExistingBoard ? undefined : targetBoardName,
-    description: aiDecision?.reason,
+    boardName: matchedExistingBoard ? undefined : boardDecision.targetBoardName,
+    description: boardDecision.aiDecision?.reason,
     autoCreated: !matchedExistingBoard,
   })
 

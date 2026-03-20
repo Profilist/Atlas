@@ -41,6 +41,7 @@
   --accent: #111111;
   --accent-soft: #ece8dd;
   --success: #e2efe5;
+  --danger: #8c3b2e;
 }
 
 * {
@@ -104,6 +105,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-height: 0;
 }
 
 .sidebar__brand,
@@ -120,10 +122,73 @@ button {
 .sidebar__boards {
   gap: 10px;
   overflow: auto;
+  height: 100%;
+  padding: 8px 6px 8px 0;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(17, 17, 17, 0.24) transparent;
+}
+
+.sidebar__boards::-webkit-scrollbar {
+  width: 10px;
+}
+
+.sidebar__boards::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar__boards::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 17, 0.18);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.sidebar__boards:hover::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 17, 0.3);
+  background-clip: content-box;
+}
+
+.sidebar__boards-shell {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebar__boards-shell::before,
+.sidebar__boards-shell::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 14px;
+  height: 18px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sidebar__boards-shell::before {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(246, 244, 239, 0.92), rgba(246, 244, 239, 0));
+}
+
+.sidebar__boards-shell::after {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(246, 244, 239, 0.92), rgba(246, 244, 239, 0));
 }
 
 .sidebar__nav {
   gap: 8px;
+}
+
+.sidebar__divider {
+  border-top: 1px solid var(--line-strong);
+}
+
+.sidebar__cta {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
 }
 
 .content {
@@ -288,6 +353,12 @@ button {
   color: var(--text);
 }
 
+.button-danger {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
 .button-lg {
   font-size: 18px;
   padding: 14px 18px;
@@ -319,6 +390,31 @@ button {
   gap: 12px;
 }
 
+.search-save-form {
+  display: grid;
+  gap: 8px;
+}
+
+.search-save-copy {
+  max-width: 52ch;
+}
+
+.form-note {
+  margin: 0;
+  font-size: 14px;
+}
+
+.form-note--error {
+  color: var(--danger);
+}
+
+.board-delete-card {
+  border: 1px solid rgba(140, 59, 46, 0.18);
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 22px;
+  padding: 14px;
+}
+
 .nav-link,
 .board-link {
   display: flex;
@@ -347,6 +443,33 @@ button {
   min-width: 24px;
   text-align: right;
   color: var(--muted);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 17, 17, 0.24);
+  backdrop-filter: blur(10px);
+}
+
+.modal {
+  width: min(560px, 100%);
+  max-height: min(80vh, 720px);
+  overflow: auto;
+  padding: 24px;
+  box-shadow: 0 24px 72px rgba(17, 17, 17, 0.14);
+}
+
+.modal__textarea {
+  min-height: 168px;
+}
+
+.modal__actions {
+  justify-content: flex-end;
 }
 
 .bookmark-card {

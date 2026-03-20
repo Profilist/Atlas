@@ -215,12 +215,29 @@ export const listCardsForBoard = internalQuery({
   returns: v.array(boardCardRenderModelValidator),
   handler: async (ctx, args) => {
     const viewer = await requireViewer(ctx)
-    const items = await ctx.db
+    const memberships = await ctx.db
+      .query('boardMemberships')
+      .withIndex('by_board', (q) => q.eq('boardId', args.boardId))
+      .collect()
+
+    const primaryBoardItems = await ctx.db
       .query('items')
       .withIndex('by_user_and_board', (q) =>
         q.eq('userId', viewer._id).eq('boardId', args.boardId),
       )
       .collect()
+
+    const primaryItemsById = new Map(
+      primaryBoardItems.map((item) => [item._id, item]),
+    )
+    const itemIds = [
+      ...new Set([
+        ...memberships
+          .filter((membership) => membership.userId === viewer._id)
+          .map((membership) => membership.itemId),
+        ...primaryBoardItems.map((item) => item._id),
+      ]),
+    ]
 
     const cards: Array<{
       itemId: Id<'items'>
@@ -239,7 +256,14 @@ export const listCardsForBoard = internalQuery({
       sourceCreatedAt?: number
       media: any[]
     }> = []
-    for (const item of items) {
+    for (const itemId of itemIds) {
+      const item =
+        primaryItemsById.get(itemId) ?? (await ctx.db.get(itemId))
+
+      if (!item || item.userId !== viewer._id) {
+        continue
+      }
+
       const media = await ctx.db
         .query('itemAssets')
         .withIndex('by_item_and_position', (q) => q.eq('itemId', item._id))

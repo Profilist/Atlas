@@ -51,3 +51,50 @@ export const getLatestSnapshotMeta = internalQuery({
     }
   },
 })
+
+export const getBoardItemIds = internalQuery({
+  args: {
+    userId: v.id('users'),
+    boardId: v.id('boards'),
+  },
+  returns: v.array(v.id('items')),
+  handler: async (ctx, args) => {
+    const memberships = await ctx.db
+      .query('boardMemberships')
+      .withIndex('by_board', (q) => q.eq('boardId', args.boardId))
+      .collect()
+    const primaryBoardItems = await ctx.db
+      .query('items')
+      .withIndex('by_user_and_board', (q) =>
+        q.eq('userId', args.userId).eq('boardId', args.boardId),
+      )
+      .collect()
+
+    return [
+      ...new Set([
+        ...memberships
+          .filter((membership) => membership.userId === args.userId)
+          .map((membership) => membership.itemId),
+        ...primaryBoardItems.map((item) => item._id),
+      ]),
+    ]
+  },
+})
+
+export const getPrimaryBoardItemIds = internalQuery({
+  args: {
+    userId: v.id('users'),
+    boardId: v.id('boards'),
+  },
+  returns: v.array(v.id('items')),
+  handler: async (ctx, args) => {
+    const primaryBoardItems = await ctx.db
+      .query('items')
+      .withIndex('by_user_and_board', (q) =>
+        q.eq('userId', args.userId).eq('boardId', args.boardId),
+      )
+      .collect()
+
+    return primaryBoardItems.map((item) => item._id)
+  },
+})

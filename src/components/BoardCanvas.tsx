@@ -103,7 +103,11 @@ export function BoardCanvas(props: {
   cards: BoardCard[]
   snapshot: BoardSnapshot | null
   emptyTitle: string
+  showEmptyState?: boolean
   onSave?: (snapshot: BoardSnapshot) => Promise<void>
+  saveLabel?: string
+  savingLabel?: string
+  saveDisabled?: boolean
 }) {
   const editorRef = useRef<Editor | null>(null)
   const hasFramedInitialContentRef = useRef(false)
@@ -156,13 +160,17 @@ export function BoardCanvas(props: {
     <div className="canvas-shell">
       {props.onSave ? (
         <div className="canvas-toolbar">
-          <button className="button button-primary" disabled={isSaving} onClick={handleSave}>
-            {isSaving ? 'Saving...' : 'Save Layout'}
+          <button
+            className="button button-primary"
+            disabled={isSaving || props.saveDisabled}
+            onClick={handleSave}
+          >
+            {isSaving ? (props.savingLabel ?? 'Saving...') : (props.saveLabel ?? 'Save Layout')}
           </button>
         </div>
       ) : null}
 
-      {props.cards.length === 0 ? (
+      {props.showEmptyState !== false && props.cards.length === 0 ? (
         <div className="panel empty-panel">
           <p className="eyebrow">{props.emptyTitle}</p>
           <h2 className="section-title">Nothing here yet.</h2>
