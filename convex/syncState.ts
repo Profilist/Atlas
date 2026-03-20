@@ -111,9 +111,11 @@ export const listConnectedUserIds = internalQuery({
   ),
   handler: async (ctx) => {
     const connections = await ctx.db.query('xConnections').collect()
-    return connections.map((connection) => ({
-      userId: connection.userId,
-    }))
+    return connections
+      .filter((connection) => connection.autoSyncEnabled === true)
+      .map((connection) => ({
+        userId: connection.userId,
+      }))
   },
 })
 

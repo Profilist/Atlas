@@ -17,6 +17,7 @@ const xConnectionValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   lastSyncedAt: v.optional(v.number()),
+  autoSyncEnabled: v.optional(v.boolean()),
 })
 
 export const getState = query({
@@ -30,6 +31,7 @@ export const getState = query({
         scope: v.array(v.string()),
         expiresAt: v.optional(v.number()),
         lastSyncedAt: v.optional(v.number()),
+        autoSyncEnabled: v.boolean(),
       }),
       v.null(),
     ),
@@ -53,6 +55,7 @@ export const getState = query({
         scope: connection.scope,
         expiresAt: connection.expiresAt,
         lastSyncedAt: connection.lastSyncedAt,
+        autoSyncEnabled: connection.autoSyncEnabled ?? false,
       },
     }
   },
@@ -102,6 +105,7 @@ export const completeXConnect = mutation({
         createdAt: now,
         updatedAt: now,
         lastSyncedAt: undefined,
+        autoSyncEnabled: false,
       })
     }
 
@@ -127,6 +131,35 @@ export const disconnectX = mutation({
     }
 
     return null
+  },
+})
+
+export const setAutoSyncEnabled = mutation({
+  args: {
+    enabled: v.boolean(),
+  },
+  returns: v.object({
+    autoSyncEnabled: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const viewer = await requireViewer(ctx)
+    const connection = await ctx.db
+      .query('xConnections')
+      .withIndex('by_user', (q) => q.eq('userId', viewer._id))
+      .unique()
+
+    if (!connection) {
+      throw new ConvexError('Connect X before changing auto sync')
+    }
+
+    await ctx.db.patch(connection._id, {
+      autoSyncEnabled: args.enabled,
+      updatedAt: Date.now(),
+    })
+
+    return {
+      autoSyncEnabled: args.enabled,
+    }
   },
 })
 

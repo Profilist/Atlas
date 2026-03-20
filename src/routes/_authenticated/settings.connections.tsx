@@ -11,9 +11,11 @@ export const Route = createFileRoute('/_authenticated/settings/connections')({
 function ConnectionsRouteComponent() {
   const connectionState = useQuery(api.connections.getState, {})
   const disconnectX = useMutation(api.connections.disconnectX)
+  const setAutoSyncEnabled = useMutation(api.connections.setAutoSyncEnabled)
   const syncNow = useAction(api.sync.syncNow)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [isUpdatingAutoSync, setIsUpdatingAutoSync] = useState(false)
 
   async function handleSync() {
     setIsSyncing(true)
@@ -30,6 +32,21 @@ function ConnectionsRouteComponent() {
       await disconnectX({})
     } finally {
       setIsDisconnecting(false)
+    }
+  }
+
+  async function handleToggleAutoSync() {
+    if (!connectionState?.connection) {
+      return
+    }
+
+    setIsUpdatingAutoSync(true)
+    try {
+      await setAutoSyncEnabled({
+        enabled: !connectionState.connection.autoSyncEnabled,
+      })
+    } finally {
+      setIsUpdatingAutoSync(false)
     }
   }
 
@@ -51,9 +68,19 @@ function ConnectionsRouteComponent() {
           </h2>
           <p className="muted">
             {connectionState?.connection
-              ? 'Bookmarks import into boards automatically, including attached media previews.'
+              ? 'Bookmarks import into boards automatically when you sync, including attached media previews.'
               : 'Connect your X account to import bookmarks directly into the whiteboard.'}
           </p>
+
+          {connectionState?.connection ? (
+            <p className="muted">
+              Hourly auto sync is{' '}
+              {connectionState.connection.autoSyncEnabled ? 'enabled' : 'disabled'}.
+              {connectionState.connection.autoSyncEnabled
+                ? ' The cron job will check X every hour.'
+                : ' Keep it off while testing to avoid extra X API usage.'}
+            </p>
+          ) : null}
 
           <div className="row gap-sm">
             <a className="button button-primary" href="/api/x/connect">
@@ -62,6 +89,19 @@ function ConnectionsRouteComponent() {
             {connectionState?.connection ? (
               <button className="button button-secondary" disabled={isSyncing} onClick={handleSync}>
                 {isSyncing ? 'Syncing...' : 'Sync Now'}
+              </button>
+            ) : null}
+            {connectionState?.connection ? (
+              <button
+                className="button button-secondary"
+                disabled={isUpdatingAutoSync}
+                onClick={handleToggleAutoSync}
+              >
+                {isUpdatingAutoSync
+                  ? 'Updating...'
+                  : connectionState.connection.autoSyncEnabled
+                    ? 'Disable Auto Sync'
+                    : 'Enable Auto Sync'}
               </button>
             ) : null}
             {connectionState?.connection ? (

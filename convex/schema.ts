@@ -39,6 +39,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     lastSyncedAt: v.optional(v.number()),
+    autoSyncEnabled: v.optional(v.boolean()),
   })
     .index('by_user', ['userId'])
     .index('by_x_user_id', ['xUserId']),
