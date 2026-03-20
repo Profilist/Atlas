@@ -7,6 +7,7 @@ import {
 } from 'tldraw'
 import 'tldraw/tldraw.css'
 import type { BoardCard, BoardSnapshot } from '@/lib/board-types'
+import { getDenseBoardPosition } from '@/lib/board-layout'
 import { BookmarkCardShapeUtil } from '@/components/BookmarkCardShapeUtil'
 
 type PositionedCard = {
@@ -43,9 +44,10 @@ function syncBoardShapes(
     liveIds.add(shapeId)
     const currentShape = existingShapes.get(shapeId)
     const persisted = layouts.get(card.itemId)
+    const fallbackPosition = getDenseBoardPosition(index)
 
-    const x = persisted?.x ?? currentShape?.x ?? (index % 3) * 360
-    const y = persisted?.y ?? currentShape?.y ?? Math.floor(index / 3) * 420
+    const x = persisted?.x ?? currentShape?.x ?? fallbackPosition.x
+    const y = persisted?.y ?? currentShape?.y ?? fallbackPosition.y
     const w = persisted?.w ?? currentShape?.props.w ?? 320
     const h = persisted?.h ?? currentShape?.props.h ?? 360
 
@@ -103,6 +105,8 @@ export function BoardCanvas(props: {
   cards: BoardCard[]
   snapshot: BoardSnapshot | null
   emptyTitle: string
+  sceneKey: string
+  layoutReady?: boolean
   showEmptyState?: boolean
   onSave?: (snapshot: BoardSnapshot) => Promise<void>
   saveLabel?: string
@@ -114,12 +118,22 @@ export function BoardCanvas(props: {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
+    hasFramedInitialContentRef.current = false
+  }, [props.sceneKey])
+
+  useEffect(() => {
     const editor = editorRef.current
     if (!editor) {
       return
     }
+
     syncBoardShapes(editor, props.cards, props.snapshot)
-    if (!hasFramedInitialContentRef.current && props.cards.length > 0) {
+
+    if (
+      props.layoutReady !== false &&
+      !hasFramedInitialContentRef.current &&
+      props.cards.length > 0
+    ) {
       editor.zoomToFit({
         animation: {
           duration: 0,
@@ -127,7 +141,7 @@ export function BoardCanvas(props: {
       })
       hasFramedInitialContentRef.current = true
     }
-  }, [props.cards, props.snapshot])
+  }, [props.cards, props.layoutReady, props.snapshot])
 
   async function handleSave() {
     if (!props.onSave || !editorRef.current) {
@@ -183,7 +197,11 @@ export function BoardCanvas(props: {
           onMount={(editor) => {
             editorRef.current = editor
             syncBoardShapes(editor, props.cards, props.snapshot)
-            if (!hasFramedInitialContentRef.current && props.cards.length > 0) {
+            if (
+              props.layoutReady !== false &&
+              !hasFramedInitialContentRef.current &&
+              props.cards.length > 0
+            ) {
               editor.zoomToFit({
                 animation: {
                   duration: 0,

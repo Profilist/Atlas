@@ -22,18 +22,29 @@ function BoardRouteComponent() {
   const generateUploadUrl = useMutation(api.boards.generateSnapshotUploadUrl)
   const commitSnapshot = useMutation(api.boards.commitSnapshot)
   const [snapshot, setSnapshot] = useState<BoardSnapshot | null>(null)
+  const [isSnapshotLoaded, setIsSnapshotLoaded] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let isActive = true
+    setIsSnapshotLoaded(false)
+    setSnapshot(null)
 
-    void readSnapshot({ boardId: boardId as Id<'boards'> }).then((result) => {
-      if (isActive) {
-        setSnapshot(result)
-      }
-    })
+    void readSnapshot({ boardId: boardId as Id<'boards'> })
+      .then((result) => {
+        if (isActive) {
+          setSnapshot(result)
+          setIsSnapshotLoaded(true)
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setSnapshot(null)
+          setIsSnapshotLoaded(true)
+        }
+      })
 
     return () => {
       isActive = false
@@ -172,13 +183,22 @@ function BoardRouteComponent() {
         </div>
       </header>
 
-      <BoardCanvas
-        cards={boardData.cards}
-        emptyTitle="Board"
-        onSave={handleSave}
-        saveDisabled={isDeleting}
-        snapshot={snapshot}
-      />
+      {isSnapshotLoaded ? (
+        <BoardCanvas
+          cards={boardData.cards}
+          emptyTitle="Board"
+          layoutReady={isSnapshotLoaded}
+          onSave={handleSave}
+          saveDisabled={isDeleting}
+          sceneKey={boardId}
+          snapshot={snapshot}
+        />
+      ) : (
+        <div className="panel empty-panel stack-sm">
+          <p className="eyebrow">Loading</p>
+          <h2 className="section-title">Loading saved layout...</h2>
+        </div>
+      )}
     </div>
   )
 }

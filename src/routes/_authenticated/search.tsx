@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { BoardCanvas } from '@/components/BoardCanvas'
+import { compactBoardSnapshot } from '@/lib/board-layout'
 import type { BoardCard, BoardSnapshot } from '@/lib/board-types'
 
 export const Route = createFileRoute('/_authenticated/search')({
@@ -29,6 +30,7 @@ function SearchRouteComponent() {
   const [results, setResults] = useState<{
     boardTitle: string
     query: string
+    sceneKey: string
     cards: Array<{
       itemId: Id<'items'>
       x: number
@@ -45,6 +47,9 @@ function SearchRouteComponent() {
   const [isCreatingBoard, setIsCreatingBoard] = useState(false)
   const [pendingSnapshot, setPendingSnapshot] = useState<BoardSnapshot | null>(null)
   const boardNameInputRef = useRef<HTMLInputElement | null>(null)
+  const sceneKey = `${search.boardId || 'all'}:${search.q}`
+  const activeResults = results?.sceneKey === sceneKey ? results : null
+  const isSearchLayoutReady = !search.q || activeResults !== null
 
   useEffect(() => {
     if (!search.q) {
@@ -52,13 +57,18 @@ function SearchRouteComponent() {
       return
     }
 
+    setResults(null)
+
     let isActive = true
     void generateBoard({
       query: search.q,
       boardId: search.boardId ? (search.boardId as Id<'boards'>) : undefined,
     }).then((nextResults) => {
       if (isActive) {
-        setResults(nextResults)
+        setResults({
+          ...nextResults,
+          sceneKey,
+        })
       }
     })
 
@@ -107,10 +117,10 @@ function SearchRouteComponent() {
     }
   }, [isCreateModalOpen, isCreatingBoard])
 
-  const snapshot: BoardSnapshot | null = results
+  const rawSnapshot: BoardSnapshot | null = activeResults
     ? {
         version: 1,
-        cards: results.cards.map((card) => ({
+        cards: activeResults.cards.map((card) => ({
           itemId: card.itemId,
           x: card.x,
           y: card.y,
@@ -119,7 +129,8 @@ function SearchRouteComponent() {
         })),
       }
     : null
-  const canCreateBoard = (results?.cards.length ?? 0) > 0
+  const snapshot = rawSnapshot ? compactBoardSnapshot(rawSnapshot) : null
+  const canCreateBoard = (activeResults?.cards.length ?? 0) > 0
 
   function closeCreateBoardModal() {
     if (isCreatingBoard) {
@@ -158,13 +169,14 @@ function SearchRouteComponent() {
     setSaveError(null)
 
     try {
+      const compactedSnapshot = compactBoardSnapshot(pendingSnapshot)
       const uploadUrl = await generateUploadUrl({})
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(pendingSnapshot),
+        body: JSON.stringify(compactedSnapshot),
       })
 
       if (!uploadResponse.ok) {
@@ -203,7 +215,7 @@ function SearchRouteComponent() {
       <header className="page-header">
         <div className="stack-sm">
           <p className="eyebrow">Search</p>
-          <h1 className="display display-sm">{results?.boardTitle || 'Spin up a temporary board.'}</h1>
+          <h1 className="display display-sm">{activeResults?.boardTitle || 'Spin up a temporary board.'}</h1>
           <p className="muted">
             Search inside one category or across every saved board and get a fresh whiteboard instantly.
           </p>
@@ -241,11 +253,13 @@ function SearchRouteComponent() {
       </header>
 
       <BoardCanvas
-        cards={results?.cards.map((card) => card.card) ?? []}
+        cards={activeResults?.cards.map((card) => card.card) ?? []}
         emptyTitle="Search"
+        layoutReady={isSearchLayoutReady}
         onSave={search.q ? handleOpenCreateBoardModal : undefined}
         saveDisabled={!canCreateBoard || isCreateModalOpen || isCreatingBoard}
         saveLabel="Create Board"
+        sceneKey={sceneKey}
         showEmptyState={false}
         snapshot={snapshot}
       />
